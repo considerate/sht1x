@@ -1,0 +1,23 @@
+{
+  "name": "hallutclient",
+  "version": "0.0.0",
+  "description": "",
+  "main": "sht1x_lowlevel.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/considerate/hallutclient.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/considerate/hallutclient/issues"
+  },
+  "homepage": "https://github.com/considerate/hallutclient",
+  "dependencies": {
+    "pi-gpio": "0.0.5",
+    "async": "~0.7.0"
+  }
+}
