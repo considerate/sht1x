@@ -1,5 +1,6 @@
 var gpio = require('pi-gpio');
 var thunkify = require('thunkify');
+var wait = require('co-wait');
 
 // Defines a Pin class.
 // Makes things easier... Does not send commands if there's no need to.
@@ -12,130 +13,59 @@ var setDirection = thunkify(gpio.setDirection);
 var open = thunkify(gpio.open);
 var close = thunkify(gpio.close);
 
-var Pin = function(pin, value, dir) {
-	this.pinNUM = pin;
-	this.pinDIR = dir;
-	this.pinVAL = value;
-
-	this.sureOfPinVAL = (this.pinDIR == Pin.OUTPUT ? true : false);
+function Pin(pin, value, dir) {
+	console.log(pin);
+	this.number = pin;
+	this.dir = dir;
+	this.val = value;
+	if(dir === Pin.OUTPUT) {
+		this.sureOfval = true;
+	} else {
+		this.sureOfval = false;
+	}
 }
 
 Pin.OUTPUT = "out";
 Pin.INPUT = "in";
 
-Pin.protoype.init = function*() {
+Pin.prototype.init = function*() {
 	// Initialize.
-	yield open(pin, dir);
-	yield write(pin, value);	
+	yield open(this.number, this.dir);
+	yield setDirection(this.number, this.dir);
+	yield write(this.number, this.val);	
 }
 
-Pin.protoype.close = function() {
-	yield close(this.pinNUM);
+Pin.prototype.close = function*() {
+	yield close(this.number);
 }
 
-Pin.protoype.setDirection = function*(dir) {
-	if(dir == this.pinDIR) {
+Pin.prototype.setDirection = function*(dir) {
+	if(dir == this.dir) {
 		return;
 	}
-	yield setDirection(this.pinNUM, dir);
-	this.pinDIR = dir;
-	this.sureOfPinVAL = false;
+	yield setDirection(this.number, dir);
+	this.dir = dir;
+	if(dir === Pin.INPUT) {
+		this.sureOfval = false;
+	}
 }
 
-Pin.protoype.write = function* (value) {
-	if(this.sureOfPinVAL && this.pinVAL === value) {
-		callback();
+Pin.prototype.write = function* (value) {
+	if(this.sureOfval && this.val === value) {
 		return;
 	}
 	yield this.setDirection(Pin.OUTPUT);
-	yield write(this.pinNUM, value);
+	yield write(this.number, value);
 	//yield wait(2);
-	this.pinVAL = value;
-	this.sureOfPinVAL = true;
+	this.val = value;
+	this.sureOfval = true;
 }
 
-Pin.protoype.read = function* () {
+Pin.prototype.read = function* () {
 	yield this.setDirection(Pin.INPUT);
-	var result = yield read(this.pinNUM);
+	var result = yield read(this.number);
 	//yield wait(2);
 	return result;
 }
 
 module.exports = Pin;
-
-
-/*
-
-
-var start = new Date().getTime();
-var last;
-
-// 
-// DEBUG
-// 
-function pt() {
-	return new Date().getTime() - start;
-}
-
-function pinName(pin) {
-	var pinName = "boogey";
-	if(pin == pinDAT.pinNUM) {
-		pinName = "Data Pin";
-	} else if(pin == pinSCK.pinNUM) {
-		pinName = "Clk Pin ";
-	}
-	return pinName;
-}
-
-
-var old_gpio_write = gpio.write;
-gpio.write = function(pin, value, callback) {
-	var time;
-	if(!last) {
-		last = new Date().getTime();
-		time = "-";
-	} else {
-		oldLast = last;
-		last = new Date().getTime();
-		time = new Date().getTime() - oldLast;
-	}
-	console.log("W (" + pinName(pin) + ", " + value + ") " + time);
-	setTimeout(function() { old_gpio_write(pin, value, callback); }, 10);
-}
-
-var old_gpio_read = gpio.read;
-gpio.read = function(pin, callback) {
-	setTimeout(function() { old_gpio_read(pin, function(err, result) {
-		if(err) {
-			callback(err);
-		} else {
-			var time;
-			if(!last) {
-				last = new Date().getTime();
-				time = "-";
-			} else {
-				oldLast = last;
-				last = new Date().getTime();
-				time = new Date().getTime() - oldLast;
-			}
-			console.log("R (" + pinName(pin) + ", " + result + ") " + time);
-			callback(err, result);
-		}
-	}); }, 10);
-}
-
-var old_gpio_setDirection = gpio.setDirection;
-gpio.setDirection = function(pin, dir, callback) {
-	var time;
-	if(!last) {
-		last = new Date().getTime();
-		time = "-";
-	} else {
-		oldLast = last;
-		last = new Date().getTime();
-		time = new Date().getTime() - oldLast;
-	}
-	console.log("D (" + pinName(pin) + ", " + dir + ") " + time);
-	setTimeout(function() { old_gpio_setDirection(pin, dir, callback); }, 10);
-} 
-*/

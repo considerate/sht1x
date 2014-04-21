@@ -1,8 +1,3 @@
-// var gpio = require("../pi-gpio");
-// var async = require("../async");
-
-var gpio = require("./HallUt14/client/node_modules/pi-gpio");
-var async = require("./HallUt14/client/node_modules/async");
 var Pin = require('./pin');
 var co = require('co');
 var wait = require('co-wait');
@@ -73,7 +68,7 @@ var reverseByte = (function initReverseByte() {
  * DAT: ^^^^\_______/^^^^ 
  */
 function* initTransmission(callback) {
-	console.log("Init transmission");
+	//console.log("Init transmission");
 	yield pinDAT.write(1)
 	yield pinSCK.write(0)
 	yield pinSCK.write(1)
@@ -101,7 +96,7 @@ function* readByte(options) {
 }
 
 function* sendByte(val) {
-	console.log("Send byte");
+	////console.log("Send byte");
 	for(var i = 0; i < 8; i ++) {
 		//Write bit i of val to pinDAT
 		yield pinDAT.write((val >> (7 - i)) & 1);	
@@ -139,8 +134,8 @@ exports.destructPins = function*() {
 }
 
 exports.resetCommunication = function*() {
-	console.log("Reset communication.");
-	yield pinDAT.write(1, next);
+	//console.log("Reset communication.");
+	yield pinDAT.write(1);
 	for(var i = 0; i < 9; i++) {
 		yield tick();	
 	};
@@ -153,15 +148,16 @@ exports.softReset = function*() {
 }
 
 exports.measure = function* (type) {
-	console.log("Measure");
+	//console.log("Measure");
 	function* waitForResults() {
-		console.log("Wait for results");
-		var val;
+		//console.log("Wait for results");
+		var val = 1;
 		while(val === 1) {
 			//Wait until value of the data pin is 0
 			yield wait(50);
 			val = yield pinDAT.read();
 		}
+		//console.log('Done waiting');
 	}
 	yield initTransmission();
 	yield sendByte(type);
@@ -169,7 +165,7 @@ exports.measure = function* (type) {
 	var a = yield readByte({ack: true});
 	var b = yield readByte({ack: false});
 	var result = (a << 8) | b;
-	console.log("meas: %j", [a,b]);
+	//console.log("meas: %j", [a,b]);
 	return result; 
 }
 // most signi ---> 0 ... 01101 ... 1 <-- least signi

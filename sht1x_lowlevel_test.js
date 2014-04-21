@@ -20,13 +20,17 @@ var tests = [{
 
 co(function* () {
 	console.log("->Global.");
-	yield sht1x.initPins(15, 18); 
+	yield sht1x.initPins({
+		dataPin: 15, 
+		clockPin: 18
+	}); 
+	//yield sht1x.destructPins();
 	yield sht1x.resetCommunication()
 	for(var i = 0; i < tests.length; i++) {
 		var test = tests[i];
 		var value = yield sht1x.measure(test.type);
-		console.log("RES: %j", result);
-		console.log("MEAS: " + test.convert(result));	
+		console.log("RES: %j", value);
+		console.log("MEAS: " + test.convert(value));	
 	}
 	yield sht1x.destructPins();
 	console.log("<-Global.");
