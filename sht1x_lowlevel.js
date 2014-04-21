@@ -168,7 +168,7 @@ exports.measure = function* (type) {
 	yield waitForResults();
 	var a = yield readByte({ack: true});
 	var b = yield readByte({ack: false});
-	var result = (a << 8) | b)
+	var result = (a << 8) | b;
 	console.log("meas: %j", [a,b]);
 	return result; 
 }
