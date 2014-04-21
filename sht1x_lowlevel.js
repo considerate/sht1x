@@ -133,7 +133,7 @@ exports.initPins = function*(options) {
 	yield pinSCK.init();
 }
 
-exports.destructPins = function(callback) {
+exports.destructPins = function*() {
 	yield pinDAT.close();
 	yield pinSCK.close();
 }
