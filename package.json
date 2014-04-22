@@ -2,9 +2,9 @@
   "name": "hallutclient",
   "version": "0.0.0",
   "description": "",
-  "main": "sht1x_lowlevel.js",
+  "main": "lib/sht1x.js",
   "scripts": {
-    "test": "node --harmony sht1x_test.js"
+    "test": "node --harmony test/sht1x_test.js"
   },
   "repository": {
     "type": "git",
