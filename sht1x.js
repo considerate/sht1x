@@ -2,7 +2,6 @@ var Pin = require('./pin');
 var co = require('co');
 var wait = require('co-wait');
 
-var pinDAT, pinSCK;
 // These values are really for 3.5V. Our sensor runs on 3.3V
 // so these are not as accurate as possible. Datasheet lists 
 // values for different voltages so one can probably interpolate
@@ -28,19 +27,19 @@ var CMD_RESET    = parseInt("11110", 2);
 var statusReg = 0;
 
 // Expose two types of measurements.
-exports.MEAS_T = CMD_MEAS_T;
-exports.MEAS_RH = CMD_MEAS_RH;
+exports.TEMPERATURE = CMD_MEAS_T;
+exports.HUMIDITY = CMD_MEAS_RH;
 
 // Expose bit location of settings in status register.
 exports.STATUS_HEATING      = parseInt("00000100", 2); 
-exports.STATUS_NOOTPRELOAD  = parseInt("00000010", 2); 
+exports.STATUS_NO_OTP_RELOAD  = parseInt("00000010", 2); 
 exports.STATUS_PRECISION    = parseInt("00000001", 2);
 exports.STATUS_ENDOFBATTERY = parseInt("01000000", 2);
 
 
 function* tick() {
-	yield pinSCK.write(1);
-	yield pinSCK.write(0);
+	yield this.clockPin.write(1);
+	yield this.clockPin.write(0);
 }
 var reverseByte = (function initReverseByte() {
 	function b2d(val) { 
@@ -60,7 +59,7 @@ var reverseByte = (function initReverseByte() {
 		val = ((val & _11001100) >> 2) | ((val & _00110011) << 2);
 		val = ((val & _10101010) >> 1) | ((val & _01010101) << 1);
 		return val;
-	}
+	};
 })();
 
 /**
@@ -68,104 +67,110 @@ var reverseByte = (function initReverseByte() {
  * DAT: ^^^^\_______/^^^^ 
  */
 function* initTransmission(callback) {
-	//console.log("Init transmission");
-	yield pinDAT.write(1)
-	yield pinSCK.write(0)
-	yield pinSCK.write(1)
-	yield pinDAT.write(0)
-	yield pinSCK.write(0)
-	yield pinSCK.write(1)
-	yield pinDAT.write(1)
-	yield pinSCK.write(0)	
+	yield this.dataPin.write(1);
+	yield this.clockPin.write(0);
+	yield this.clockPin.write(1);
+	yield this.dataPin.write(0);
+	yield this.clockPin.write(0);
+	yield this.clockPin.write(1);
+	yield this.dataPin.write(1);
+	yield this.clockPin.write(0);	
 }
 
 function* readByte(options) {
 	var ack = options.ack;
 	var reads = [];
 	for(var i = 0; i < 8; i++) {
-		var val = yield pinDAT.read(); 
-		yield tick();
+		var val = yield this.dataPin.read(); 
+		yield tick.call(this);
 		reads.push(val);
 	}
 	var bits = reads.join(''); //Concat all read bits (empty string join)
-	var val = parseInt(bits, 2);
+	var value = parseInt(bits, 2);
 	if(ack) {
-		yield ACKReadByte();	
+		yield ACKReadByte.call(this);	
 	}
-	return val;
+	return value;
 }
 
 function* sendByte(val) {
-	////console.log("Send byte");
 	for(var i = 0; i < 8; i ++) {
-		//Write bit i of val to pinDAT
-		yield pinDAT.write((val >> (7 - i)) & 1);	
-		yield tick();	
+		//Write bit i of val to this.dataPin
+		yield this.dataPin.write((val >> (7 - i)) & 1);	
+		yield tick.call(this);	
 	}
-	yield ACKSentByte();
+	yield ACKSentByte.call(this);
 }
 
 function* ACKReadByte() {
-	yield pinDAT.write(0);
-	yield tick();
+	yield this.dataPin.write(0);
+	yield tick.call(this);
 }
 
 function* ACKSentByte() {
-	var a = yield pinDAT.read();
-	yield tick();
-	var b = yield pinDAT.read();
-	if(a == 0 && b == 1) {
+	var a = yield this.dataPin.read();
+	yield tick.call(this);
+	var b = yield this.dataPin.read();
+	if(a === 0 && b === 1) {
 		return;
 	} else {
-		throw Error("Got no ACK on sent byte.")
+		throw Error("Got no ACK on sent byte.");
 	}
 }
 
-exports.initPins = function*(options) {
-	pinDAT = new Pin(options.dataPin, 1, Pin.OUTPUT);
-	pinSCK = new Pin(options.clockPin, 0, Pin.OUTPUT);
-	yield pinDAT.init();
-	yield pinSCK.init();
+exports.create = function() {
+	var context = {};
+	context.init = initPins;
+	context.close = closePins;
+	context.reset = resetCommunication;
+	context.softReset = softReset;
+	context.measure = measure;
+	return context;
+};
+
+function* initPins(options) {
+	var dataPin = new Pin(options.dataPin, 1, Pin.OUTPUT);
+	var clockPin = new Pin(options.clockPin, 0, Pin.OUTPUT);
+	this.dataPin = dataPin;
+	this.clockPin = clockPin;
+	yield dataPin.init();
+	yield clockPin.init();
 }
 
-exports.destructPins = function*() {
-	yield pinDAT.close();
-	yield pinSCK.close();
+function* closePins() {
+	yield this.dataPin.close();
+	yield this.clockPin.close();
 }
 
-exports.resetCommunication = function*() {
-	//console.log("Reset communication.");
-	yield pinDAT.write(1);
+function* resetCommunication() {
+	yield this.dataPin.write(1);
 	for(var i = 0; i < 9; i++) {
-		yield tick();	
-	};
-}
-
-exports.softReset = function*() {
-	yield resetCommunication();
-	yield initTransmission();
-	yield sendByte(CMD_SOFT_RESET);
-}
-
-exports.measure = function* (type) {
-	//console.log("Measure");
-	function* waitForResults() {
-		//console.log("Wait for results");
-		var val = 1;
-		while(val === 1) {
-			//Wait until value of the data pin is 0
-			yield wait(50);
-			val = yield pinDAT.read();
-		}
-		//console.log('Done waiting');
+		yield tick.call(this);	
 	}
-	yield initTransmission();
-	yield sendByte(type);
-	yield waitForResults();
-	var a = yield readByte({ack: true});
-	var b = yield readByte({ack: false});
+}
+
+function* softReset() {
+	yield resetCommunication.call(this);
+	yield initTransmission.call(this);
+	yield sendByte.call(this, CMD_SOFT_RESET);
+}
+
+function* waitForResults() {
+	var val = 1;
+	while(val === 1) {
+		//Wait until value of the data pin is 0
+		yield wait(50);
+		val = yield this.dataPin.read();
+	}
+}
+
+function* measure(type) {
+	yield initTransmission.call(this);
+	yield sendByte.call(this, type);
+	yield waitForResults.call(this);
+	var a = yield readByte.call(this, {ack: true});
+	var b = yield readByte.call(this, {ack: false});
 	var result = (a << 8) | b;
-	//console.log("meas: %j", [a,b]);
 	return result; 
 }
 // most signi ---> 0 ... 01101 ... 1 <-- least signi
@@ -176,7 +181,7 @@ exports.convertToCelcius = function(val) {
 	} else {
 		return CONVERSION_D1_BOTHP + CONVERSION_D2_HIGHP * val;
 	}
-}
+};
 
 exports.convertToRelativeHumidity = function(val) {
 	// If set, low precision is set.
@@ -185,4 +190,4 @@ exports.convertToRelativeHumidity = function(val) {
 	} else {
 		return CONVERSION_C1_HIGHP + CONVERSION_C2_HIGHP * val + CONVERSION_C3_HIGHP * val * val;
 	}
-}
+};

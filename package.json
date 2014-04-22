@@ -4,7 +4,7 @@
   "description": "",
   "main": "sht1x_lowlevel.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --harmony sht1x_test.js"
   },
   "repository": {
     "type": "git",
