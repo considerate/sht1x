@@ -1,5 +1,4 @@
 var Pin = require('./pin');
-var co = require('co');
 var wait = require('co-wait');
 
 // These values are really for 3.5V. Our sensor runs on 3.3V
@@ -16,12 +15,16 @@ var CONVERSION_C2_LOWP  = 0.5872;
 var CONVERSION_C3_HIGHP = -1.5955 * 0.000001;
 var CONVERSION_C3_LOWP  = -4.0845 * 0.0001;
 
+function b2d(val) { 
+	return parseInt(val, 2); 
+}
+
 // Available commands.
-var CMD_MEAS_T   = parseInt("00011", 2);
-var CMD_MEAS_RH  = parseInt("00101", 2);
-var CMD_STATUS_R = parseInt("00111", 2);
-var CMD_STATUS_W = parseInt("00110", 2);
-var CMD_RESET    = parseInt("11110", 2);
+var CMD_MEAS_T   = b2d("00011");
+var CMD_MEAS_RH  = b2d("00101");
+var CMD_STATUS_R = b2d("00111");
+var CMD_STATUS_W = b2d("00110");
+var CMD_RESET    = b2d("11110");
 
 // Local copy of sensors status register. It defaults to 0.
 var statusReg = 0;
@@ -31,10 +34,10 @@ exports.TEMPERATURE = CMD_MEAS_T;
 exports.HUMIDITY = CMD_MEAS_RH;
 
 // Expose bit location of settings in status register.
-exports.STATUS_HEATING      = parseInt("00000100", 2); 
-exports.STATUS_NO_OTP_RELOAD  = parseInt("00000010", 2); 
-exports.STATUS_PRECISION    = parseInt("00000001", 2);
-exports.STATUS_ENDOFBATTERY = parseInt("01000000", 2);
+exports.STATUS_HEATING      	= b2d("00000100"); 
+exports.STATUS_NO_OTP_RELOAD  	= b2d("00000010"); 
+exports.STATUS_LOW_PRECISION    = b2d("00000001");
+exports.STATUS_ENDOFBATTERY 	= b2d("01000000");
 
 
 function* tick() {
@@ -42,10 +45,6 @@ function* tick() {
 	yield this.clockPin.write(0);
 }
 var reverseByte = (function initReverseByte() {
-	function b2d(val) { 
-		return parseInt(val, 2); 
-	}
-
 	//Constants for reverseByte
 	var _11110000 = b2d('11110000');
 	var _00001111 = b2d('00001111');
@@ -86,7 +85,7 @@ function* readByte(options) {
 		reads.push(val);
 	}
 	var bits = reads.join(''); //Concat all read bits (empty string join)
-	var value = parseInt(bits, 2);
+	var value = b2d(bits);
 	if(ack) {
 		yield ACKReadByte.call(this);	
 	}
@@ -96,7 +95,8 @@ function* readByte(options) {
 function* sendByte(val) {
 	for(var i = 0; i < 8; i ++) {
 		//Write bit i of val to this.dataPin
-		yield this.dataPin.write((val >> (7 - i)) & 1);	
+		var bit = (val >> (7 - i)) & 1;
+		yield this.dataPin.write(bit);	
 		yield tick.call(this);	
 	}
 	yield ACKSentByte.call(this);
@@ -122,8 +122,8 @@ exports.create = function() {
 	var context = {};
 	context.init = initPins;
 	context.close = closePins;
-	context.reset = resetCommunication;
-	context.softReset = softReset;
+	//context.reset = resetCommunication;
+	//context.softReset = softReset;
 	context.measure = measure;
 	return context;
 };
@@ -159,7 +159,7 @@ function* waitForResults() {
 	var val = 1;
 	while(val === 1) {
 		//Wait until value of the data pin is 0
-		yield wait(50);
+		yield wait(10);
 		val = yield this.dataPin.read();
 	}
 }
@@ -184,8 +184,7 @@ exports.convertToCelcius = function(val) {
 };
 
 exports.convertToRelativeHumidity = function(val) {
-	// If set, low precision is set.
-	if(statusReg & exports.STATUS_PRECISION) {
+	if(statusReg & exports.STATUS_LOW_PRECISION) {
 		return CONVERSION_C1_LOWP + CONVERSION_C2_LOWP * val + CONVERSION_C3_LOWP * val * val;
 	} else {
 		return CONVERSION_C1_HIGHP + CONVERSION_C2_HIGHP * val + CONVERSION_C3_HIGHP * val * val;

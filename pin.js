@@ -14,58 +14,70 @@ var open = thunkify(gpio.open);
 var close = thunkify(gpio.close);
 
 function Pin(pin, value, dir) {
-	console.log(pin);
+	if(!this instanceof Pin) {
+		return new Pin(pin, value, dir);
+	}
 	this.number = pin;
 	this.dir = dir;
 	this.val = value;
 	if(dir === Pin.OUTPUT) {
-		this.sureOfval = true;
+		this.valueKnown = true;
 	} else {
-		this.sureOfval = false;
+		this.valueKnown = false;
 	}
 }
 
 Pin.OUTPUT = "out";
 Pin.INPUT = "in";
 
-Pin.prototype.init = function*() {
+var pin = Pin.prototype;
+
+pin.init = function*() {
 	// Initialize.
 	yield open(this.number, this.dir);
 	yield setDirection(this.number, this.dir);
 	yield write(this.number, this.val);	
-}
+};
 
-Pin.prototype.close = function*() {
+pin.close = function*() {
 	yield close(this.number);
-}
+};
 
-Pin.prototype.setDirection = function*(dir) {
-	if(dir == this.dir) {
+pin.setDirection = function*(dir) {
+	if(dir === this.dir) {
 		return;
 	}
 	yield setDirection(this.number, dir);
 	this.dir = dir;
 	if(dir === Pin.INPUT) {
-		this.sureOfval = false;
+		this.valueKnown = false;
 	}
-}
+};
 
-Pin.prototype.write = function* (value) {
-	if(this.sureOfval && this.val === value) {
+pin.get = function* () {
+	if(this.valueKnown) {
+		return this.val;
+	}
+	var val = yield this.read();
+	return val;
+};
+
+pin.write = function* (value) {
+	if(this.valueKnown && this.val === value) {
 		return;
 	}
 	yield this.setDirection(Pin.OUTPUT);
 	yield write(this.number, value);
 	//yield wait(2);
 	this.val = value;
-	this.sureOfval = true;
-}
+	this.valueKnown = true;
+};
 
-Pin.prototype.read = function* () {
+pin.read = function* () {
 	yield this.setDirection(Pin.INPUT);
 	var result = yield read(this.number);
 	//yield wait(2);
 	return result;
-}
+};
 
 module.exports = Pin;
