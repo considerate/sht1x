@@ -1,5 +1,4 @@
 var sht1x = require("./sht1x");
-var co = require('co');
 
 var tests = [{
 	label: 'Temperature',
@@ -12,13 +11,11 @@ var tests = [{
 	convert: sht1x.convertToRelativeHumidity
 }];
 
-co(function* () {
-	var sensor = sht1x.create();
+sht1x.create(function* (sensor) {
 	yield sensor.init({
 		dataPin: 15, 
 		clockPin: 18
 	}); 
-	//yield sensor.reset();
 	for(var i = 0; i < tests.length; i++) {
 		var test = tests[i];
 		var value = yield sensor.measure(test.type);
@@ -26,4 +23,4 @@ co(function* () {
 		console.log("%s: %d", test.label, test.convert(value));	
 	}
 	yield sensor.close();
-})();
+});

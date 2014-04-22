@@ -1,5 +1,6 @@
 var Pin = require('./pin');
 var wait = require('co-wait');
+var co = require('co');
 
 // These values are really for 3.5V. Our sensor runs on 3.3V
 // so these are not as accurate as possible. Datasheet lists 
@@ -118,14 +119,15 @@ function* ACKSentByte() {
 	}
 }
 
-exports.create = function() {
+exports.create = function(fn) {
 	var context = {};
 	context.init = initPins;
 	context.close = closePins;
-	//context.reset = resetCommunication;
-	//context.softReset = softReset;
+	context.reset = resetCommunication;
+	context.softReset = softReset;
 	context.measure = measure;
-	return context;
+	var generator = co(fn);
+	generator(context);
 };
 
 function* initPins(options) {
